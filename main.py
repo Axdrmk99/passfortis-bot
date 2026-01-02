@@ -1,53 +1,87 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+# futuristic_passfortisbot.py
+
+import os
+import random
 from zxcvbn import zxcvbn
-import secrets
-import string
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-BOT_TOKEN = "8254696772:AAFEepz6onei2yLu8hcigR7rZ2T0hoOM010"
+# Get your BOT_TOKEN from Railway environment variables
+BOT_TOKEN = os.environ.get("8254696772:AAFEepz6onei2yLu8hcigR7rZ2T0hoOM010")
 
-def generate_strong_password(base):
-    chars = string.ascii_letters + string.digits + "!@#$%^&*()-_+="
-    extra_length = max(14 - len(base), 6)
-    extra = ''.join(secrets.choice(chars) for _ in range(extra_length))
-    return base + extra
+# Futuristic tips and encouragements
+futuristic_tips = [
+    "⚡ Encryption integrity at risk. Upgrade recommended!",
+    "🛡️ Shield optimal. Cyber defenses strong.",
+    "💾 Hacker scan unlikely. Safety verified.",
+    "⚡ Matrix detected weakness. Fortify immediately.",
+    "🛡️ Cyber stability high. Keep up the good work."
+]
 
-async def handle_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pwd = update.message.text.strip()
+# Function to generate a strong password
+def generate_strong_password(length=12):
+    chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=<>?"
+    return ''.join(random.choice(chars) for _ in range(length))
 
-    result = zxcvbn(pwd)
-    score = result["score"]
-
-    crack_slow = result["crack_times_display"]["offline_slow_hashing_1e4_per_second"]
-    feedback = result["feedback"]
-
-    levels = ["Very Weak", "Weak", "Okay", "Strong", "Very Strong"]
-
-    message = (
-        "🔐 **PassFortis Security Report**\n\n"
-        f"**Strength:** {levels[score]} ({score}/4)\n"
-        f"**Estimated crack time:** {crack_slow}\n"
-        "_(Assuming secure password hashing)_\n\n"
+# /start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👾 Welcome to PassFortisBot, your futuristic password guardian.\n"
+        "Send me any password and I'll analyze its strength, calculate crack time, and suggest stronger alternatives if needed. 🔐"
     )
 
-    if feedback["warning"]:
-        message += f"⚠️ {feedback['warning']}\n"
+# /help command
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 Commands available:\n"
+        "/start - Introduction\n"
+        "/help - Show this message\n"
+        "/generate - Generate a strong random password\n\n"
+        "Or just send any password and I'll evaluate it!"
+    )
 
-    if feedback["suggestions"]:
-        for tip in feedback["suggestions"]:
-            message += f"• {tip}\n"
+# /generate command
+async def generate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    password = generate_strong_password()
+    await update.message.reply_text(f"⚡ Generated secure password: `{password}`", parse_mode="Markdown")
 
-    if score < 4:
-        stronger = generate_strong_password(pwd)
-        message += (
-            "\n🔧 **Improved version:**\n"
-            f"`{stronger}`\n"
-        )
+# Analyze user passwords
+async def analyze_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_password = update.message.text
+    result = zxcvbn(user_password)
+    score = result['score']  # 0-4
+    crack_time = result['crack_times_display']['offline_slow_hashing_1e4_per_second']
 
-    message += "\n🛡️ _Passwords are analyzed in memory and never stored._"
+    # Suggested stronger password if weak
+    suggested_password = generate_strong_password() if score < 3 else user_password
 
-    await update.message.reply_text(message, parse_mode="Markdown")
+    # Pick a futuristic tip
+    tip = random.choice(futuristic_tips)
 
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_password))
-app.run_polling()
+    # Build response
+    response = (
+        f"⚡ Password Analysis Report ⚡\n\n"
+        f"Password: `{user_password}`\n"
+        f"Strength Score: {score}/4\n"
+        f"Estimated crack time: {crack_time}\n"
+        f"Suggested upgrade: `{suggested_password}`\n\n"
+        f"{tip}"
+    )
+
+    await update.message.reply_text(response, parse_mode="Markdown")
+
+# Main function
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Commands
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("generate", generate))
+
+    # Password messages
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), analyze_password))
+
+    print("🚀 PassFortisBot is online and guarding passwords!")
+    app.run_polling()
+
